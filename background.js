@@ -1,33 +1,49 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2017 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-'use strict';
-function importMyBlog (a,b) {
-  console.log(a,b);
-}
-
-chrome.runtime.onInstalled.addListener(function() {
-  chrome.storage.sync.set({color: '#3aa757'}, function() {
-    console.log('The color is green.');
+"use strict";
+// Add a listener to create the initial context menu items,
+// context menu items only need to be created at runtime.onInstalled
+chrome.runtime.onInstalled.addListener(function (a, b, c) {
+  console.log("abc:", a, b, c);
+  chrome.contextMenus.create({
+    id: "km",
+    title: `使用学诚搜索:`,
+    type: "normal",
+    contexts: ["selection"],
   });
-  chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
-    chrome.declarativeContent.onPageChanged.addRules([{
-      conditions: [new chrome.declarativeContent.PageStateMatcher({
-        pageUrl: {hostEquals: 'developer.chrome.com'},
-      })
-      ],
-          actions: [new chrome.declarativeContent.ShowPageAction()]
-    }]);
-  });
-
-  const options = {
-    type: 'normal',
-    id: '1',
-    title: 'demoMenu1',
-    visible: true,
-}
-chrome.contextMenus.create(options, () => {
-    alert(`Created Success, id:${options.id}`);
 });
+
+chrome.contextMenus.onClicked.addListener(function (item, tab) {
+  let url = `https://km.sankuai.com/search?key=${item.selectionText}`;
+  chrome.tabs.create({ url: url, index: tab.index + 1 });
+});
+
+chrome.storage.onChanged.addListener(function (list, sync) {
+  let newlyDisabled = [];
+  let newlyEnabled = [];
+  let currentRemoved = list.removedContextMenu.newValue;
+  let oldRemoved = list.removedContextMenu.oldValue || [];
+  for (let key of Object.keys(kLocales)) {
+    if (currentRemoved.includes(key) && !oldRemoved.includes(key)) {
+      newlyDisabled.push(key);
+    } else if (oldRemoved.includes(key) && !currentRemoved.includes(key)) {
+      newlyEnabled.push({
+        id: key,
+        title: kLocales[key],
+      });
+    }
+  }
+  for (let locale of newlyEnabled) {
+    chrome.contextMenus.create({
+      id: locale.id,
+      title: locale.title,
+      type: "normal",
+      contexts: ["selection"],
+    });
+  }
+  for (let locale of newlyDisabled) {
+    chrome.contextMenus.remove(locale);
+  }
 });
